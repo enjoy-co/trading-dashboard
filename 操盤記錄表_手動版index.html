@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日操盤記錄表</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; background: #f5f5f2; min-height: 100vh; padding: 16px; color: #1a1a1a; }
+  h1 { font-size: 17px; font-weight: 500; margin-bottom: 6px; }
+
+  .topbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .topbar input[type=text] { font-size: 13px; border: 0.5px solid rgba(0,0,0,0.2); border-radius: 6px; padding: 6px 10px; background: #fff; color: #1a1a1a; flex: 1; min-width: 110px; }
+  .btn { font-size: 13px; padding: 6px 16px; border-radius: 6px; border: 0.5px solid rgba(0,0,0,0.2); background: #fff; cursor: pointer; color: #444; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+  .btn-save { background: #E1F5EE; color: #0F6E56; border-color: #1D9E75; font-weight: 500; }
+  .btn-edit { background: #E6F1FB; color: #185FA5; border-color: #378ADD; }
+
+  .section-title { font-size: 11px; font-weight: 500; color: #888; letter-spacing: 0.06em; text-transform: uppercase; margin: 18px 0 8px; }
+  .sub-section { font-size: 11px; font-weight: 500; color: #aaa; margin: 10px 0 6px; padding-left: 2px; }
+
+  /* Responsive grids */
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-global { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    .grid4 { grid-template-columns: repeat(2, 1fr); }
+    .grid3 { grid-template-columns: repeat(2, 1fr); }
+    .grid2 { grid-template-columns: 1fr; gap: 8px; }
+    .grid-global { grid-template-columns: repeat(2, 1fr); }
+    .card .val { font-size: 15px; }
+  }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: #888; font-weight: 500; }
+  .field input, .field select {
+    width: 100%; padding: 8px 10px; font-size: 14px;
+    border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px;
+    background: #fff; color: #1a1a1a; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  .field input:focus { border-color: #378ADD; box-shadow: 0 0 0 2px rgba(55,138,221,0.15); }
+
+  .card { background: #fff; border-radius: 8px; padding: 10px 13px; border: 0.5px solid rgba(0,0,0,0.08); }
+  .card .lbl { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .card .val { font-size: 17px; font-weight: 500; }
+  .card .sub { font-size: 12px; margin-top: 3px; }
+
+  .up { color: #c0392b; }
+  .dn { color: #0f6e56; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl-wrap { background: #fff; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.08); overflow: hidden; }
+  th { font-size: 11px; font-weight: 500; color: #888; text-align: left; padding: 8px 10px; border-bottom: 0.5px solid rgba(0,0,0,0.08); background: #fafaf8; }
+  td { padding: 8px 10px; border-bottom: 0.5px solid rgba(0,0,0,0.06); }
+  tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .badge-up   { background: #FCEBEB; color: #A32D2D; }
+  .badge-dn   { background: #E1F5EE; color: #0F6E56; }
+  .badge-neu  { background: #f0f0ee; color: #888; }
+
+  .global-cell { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 0.5px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 9px 12px; }
+  .global-cell .lbl { font-size: 13px; color: #888; }
+
+  #view { display: none; }
+  #edit { display: block; }
+
+  .note { margin-top: 20px; font-size: 11px; color: #bbb; line-height: 1.8; }
+</style>
+</head>
+<body>
+<h1>每日操盤記錄表</h1>
+<div class="topbar">
+  <input type="text" id="dateInput" placeholder="日期">
+  <button class="btn btn-edit" onclick="toggleEdit()">✎ 編輯</button>
+  <button class="btn btn-save" onclick="saveData()">✓ 儲存今日</button>
+</div>
+
+<!-- ── EDIT MODE ── -->
+<div id="edit">
+  <div class="section-title">加權指數</div>
+  <div class="grid4">
+    <div class="field"><label>指數</label><input id="e_twse_index" placeholder="44169" inputmode="decimal"></div>
+    <div class="field"><label>漲跌點</label><input id="e_twse_change" placeholder="+1019" inputmode="decimal"></div>
+    <div class="field"><label>漲跌幅 %</label><input id="e_twse_pct" placeholder="+2.36" inputmode="decimal"></div>
+    <div class="field"><label>成交量（億）</label><input id="e_twse_vol" placeholder="11176" inputmode="decimal"></div>
+    <div class="field"><label>開盤</label><input id="e_twse_open" placeholder="43587" inputmode="decimal"></div>
+    <div class="field"><label>最高</label><input id="e_twse_high" placeholder="44798" inputmode="decimal"></div>
+    <div class="field"><label>最低</label><input id="e_twse_low" placeholder="43587" inputmode="decimal"></div>
+    <div class="field"><label>中關價</label><input id="e_twse_mid" placeholder="44193" inputmode="decimal"></div>
+  </div>
+
+  <div class="section-title">台指期</div>
+  <div class="grid4">
+    <div class="field"><label>期價</label><input id="e_fut_price" placeholder="44929" inputmode="decimal"></div>
+    <div class="field"><label>漲跌點</label><input id="e_fut_change" placeholder="+969" inputmode="decimal"></div>
+    <div class="field"><label>漲跌幅 %</label><input id="e_fut_pct" placeholder="+2.24" inputmode="decimal"></div>
+    <div class="field"><label>成交量（口）</label><input id="e_fut_vol" placeholder="74402" inputmode="decimal"></div>
+    <div class="field"><label>開盤</label><input id="e_fut_open" placeholder="44929" inputmode="decimal"></div>
+    <div class="field"><label>最高</label><input id="e_fut_high" placeholder="44931" inputmode="decimal"></div>
+    <div class="field"><label>最低</label><input id="e_fut_low" placeholder="44045" inputmode="decimal"></div>
+    <div class="field"><label>中關價</label><input id="e_fut_mid" placeholder="44488" inputmode="decimal"></div>
+  </div>
+
+  <div class="section-title">法人籌碼</div>
+  <div class="grid2">
+    <div>
+      <div class="sub-section">現貨（億）</div>
+      <div class="grid3">
+        <div class="field"><label>外資</label><input id="e_foreign_spot" placeholder="+286.9" inputmode="decimal"></div>
+        <div class="field"><label>投信</label><input id="e_trust_spot" placeholder="+129.37" inputmode="decimal"></div>
+        <div class="field"><label>自營商</label><input id="e_dealer_spot" placeholder="+89.43" inputmode="decimal"></div>
+      </div>
+    </div>
+    <div>
+      <div class="sub-section">期貨（口）</div>
+      <div class="grid4">
+        <div class="field"><label>外資</label><input id="e_foreign_fut" placeholder="-1871" inputmode="decimal"></div>
+        <div class="field"><label>投信</label><input id="e_trust_fut" placeholder="+1799" inputmode="decimal"></div>
+        <div class="field"><label>自營商</label><input id="e_dealer_fut" placeholder="-587" inputmode="decimal"></div>
+        <div class="field"><label>三大合計</label><input id="e_total_fut" placeholder="-659" inputmode="decimal"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">全球市場漲跌幅 %</div>
+  <div class="grid-global">
+    <div class="field"><label>道瓊</label><input id="e_dow" placeholder="+1.86" inputmode="decimal"></div>
+    <div class="field"><label>那指</label><input id="e_nasdaq" placeholder="+2.54" inputmode="decimal"></div>
+    <div class="field"><label>費半</label><input id="e_sox" placeholder="+7.91" inputmode="decimal"></div>
+    <div class="field"><label>標普</label><input id="e_sp" placeholder="+1.70" inputmode="decimal"></div>
+    <div class="field"><label>日股</label><input id="e_jp" placeholder="+2.81" inputmode="decimal"></div>
+    <div class="field"><label>韓股</label><input id="e_kr" placeholder="+4.63" inputmode="decimal"></div>
+    <div class="field"><label>上海</label><input id="e_sh" placeholder="+1.12" inputmode="decimal"></div>
+    <div class="field"><label>香港</label><input id="e_hk" placeholder="+1.47" inputmode="decimal"></div>
+  </div>
+
+  <div class="section-title">總經指標</div>
+  <div class="grid4">
+    <div class="field"><label>匯率 USD/TWD</label><input id="e_usd" placeholder="31.618" inputmode="decimal"></div>
+    <div class="field"><label>匯率方向</label>
+      <select id="e_usd_dir"><option value="升">升值</option><option value="貶">貶值</option></select>
+    </div>
+    <div class="field"><label>黃金報價</label><input id="e_gold" placeholder="4177.3" inputmode="decimal"></div>
+    <div class="field"><label>黃金漲跌 %</label><input id="e_gold_pct" placeholder="-0.8" inputmode="decimal"></div>
+    <div class="field"><label>比特幣</label><input id="e_btc" placeholder="62995" inputmode="decimal"></div>
+    <div class="field"><label>比特幣漲跌 %</label><input id="e_btc_pct" placeholder="+0.4" inputmode="decimal"></div>
+  </div>
+</div>
+
+<!-- ── VIEW MODE ── -->
+<div id="view">
+  <div class="section-title">加權指數</div>
+  <div class="grid4" id="v_twse_cards"></div>
+
+  <div class="section-title">台指期</div>
+  <div class="grid4" id="v_fut_cards"></div>
+
+  <div class="section-title">法人籌碼 ── 現貨（億）</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>外資</th><th>投信</th><th>自營商</th></tr></thead>
+      <tbody id="v_spot_body"></tbody>
+    </table>
+  </div>
+
+  <div class="section-title" style="margin-top:10px">法人籌碼 ── 期貨（口）</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>外資</th><th>投信</th><th>自營商</th><th>三大合計</th></tr></thead>
+      <tbody id="v_fut_body"></tbody>
+    </table>
+  </div>
+
+  <div class="section-title">全球市場漲跌幅</div>
+  <div class="grid-global" id="v_global_grid"></div>
+
+  <div class="section-title">總經指標</div>
+  <div class="grid3" id="v_macro_cards"></div>
+</div>
+
+<div class="note">填入數字後按「✓ 儲存今日」切換預覽，按「✎ 編輯」繼續修改。</div>
+
+<script>
+const GLOBAL_LABELS = ['道瓊','那指','費半','標普','日股','韓股','上海','香港'];
+const GLOBAL_IDS    = ['dow','nasdaq','sox','sp','jp','kr','sh','hk'];
+
+function gv(id) {
+  const el = document.getElementById('e_' + id);
+  return el ? el.value.trim() : '';
+}
+
+function colorHtml(v, suffix='') {
+  if (v === '' || v === null || v === undefined) return '<span style="color:#bbb">—</span>';
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  const cls = n > 0 ? 'up' : n < 0 ? 'dn' : '';
+  const sign = n > 0 ? '+' : '';
+  return `<span class="${cls}">${sign}${v}${suffix}</span>`;
+}
+
+function card(label, val, sub, subUp) {
+  const subColor = subUp === undefined ? '#888' : subUp ? '#c0392b' : '#0f6e56';
+  return `<div class="card"><div class="lbl">${label}</div><div class="val">${val||'—'}</div>${sub ? `<div class="sub" style="color:${subColor}">${sub}</div>` : ''}</div>`;
+}
+
+function chipDir(v) {
+  const n = parseFloat(v);
+  if (isNaN(n)) return ['—','badge-neu'];
+  return n >= 0 ? ['▲ 偏多','badge-up'] : ['▼ 偏空','badge-dn'];
+}
+
+function renderView() {
+  const d = {};
+  ['twse_index','twse_change','twse_pct','twse_vol','twse_open','twse_high','twse_low','twse_mid',
+   'fut_price','fut_change','fut_pct','fut_vol','fut_open','fut_high','fut_low','fut_mid',
+   'foreign_spot','trust_spot','dealer_spot',
+   'foreign_fut','trust_fut','dealer_fut','total_fut',
+   'dow','nasdaq','sox','sp','jp','kr','sh','hk',
+   'usd','gold','gold_pct','btc','btc_pct'
+  ].forEach(id => { d[id] = gv(id); });
+  d.usd_dir = document.getElementById('e_usd_dir').value;
+
+  document.getElementById('v_twse_cards').innerHTML = [
+    card('加權指數', d.twse_index,
+      d.twse_change ? `${parseFloat(d.twse_change)>=0?'+':''}${d.twse_change} (${parseFloat(d.twse_pct)>=0?'+':''}${d.twse_pct}%)` : null,
+      parseFloat(d.twse_change) >= 0),
+    card('成交量', d.twse_vol ? d.twse_vol+'億' : ''),
+    card('最高 / 最低', (d.twse_high||'—')+' / '+(d.twse_low||'—'), d.twse_open?'開盤 '+d.twse_open:null),
+    card('中關價', d.twse_mid),
+  ].join('');
+
+  document.getElementById('v_fut_cards').innerHTML = [
+    card('台指期', d.fut_price,
+      d.fut_change ? `${parseFloat(d.fut_change)>=0?'+':''}${d.fut_change} (${parseFloat(d.fut_pct)>=0?'+':''}${d.fut_pct}%)` : null,
+      parseFloat(d.fut_change) >= 0),
+    card('成交量', d.fut_vol ? d.fut_vol+'口' : ''),
+    card('最高 / 最低', (d.fut_high||'—')+' / '+(d.fut_low||'—'), d.fut_open?'開盤 '+d.fut_open:null),
+    card('中關價', d.fut_mid),
+  ].join('');
+
+  const spotVals = [d.foreign_spot, d.trust_spot, d.dealer_spot];
+  document.getElementById('v_spot_body').innerHTML = `
+    <tr><td style="color:#888;font-size:12px">買賣超</td>${spotVals.map(v=>`<td>${colorHtml(v,'億')}</td>`).join('')}</tr>
+    <tr><td style="color:#888;font-size:12px">動向</td>${spotVals.map(v=>{const[t,c]=chipDir(v);return`<td><span class="badge ${c}">${t}</span></td>`;}).join('')}</tr>`;
+
+  const futVals = [d.foreign_fut, d.trust_fut, d.dealer_fut, d.total_fut];
+  document.getElementById('v_fut_body').innerHTML = `
+    <tr><td style="color:#888;font-size:12px">口數</td>${futVals.map(v=>`<td>${colorHtml(v,'口')}</td>`).join('')}</tr>
+    <tr><td style="color:#888;font-size:12px">動向</td>${futVals.map(v=>{const[t,c]=chipDir(v);return`<td><span class="badge ${c}">${t}</span></td>`;}).join('')}</tr>`;
+
+  document.getElementById('v_global_grid').innerHTML = GLOBAL_IDS.map((id,i)=>
+    `<div class="global-cell"><span class="lbl">${GLOBAL_LABELS[i]}</span>${colorHtml(d[id],'%')}</div>`
+  ).join('');
+
+  document.getElementById('v_macro_cards').innerHTML = [
+    card('匯率 USD/TWD', d.usd, d.usd_dir==='升'?'↑ 台幣升值':'↓ 台幣貶值', d.usd_dir==='升'),
+    card('黃金', d.gold||'—', d.gold_pct ? colorHtml(d.gold_pct,'%') : null),
+    card('比特幣', d.btc||'—', d.btc_pct ? colorHtml(d.btc_pct,'%') : null),
+  ].join('');
+}
+
+let isEditing = true;
+function toggleEdit() {
+  isEditing = !isEditing;
+  document.getElementById('edit').style.display = isEditing ? 'block' : 'none';
+  document.getElementById('view').style.display = isEditing ? 'none' : 'block';
+  if (!isEditing) renderView();
+}
+
+function saveData() {
+  const data = {};
+  document.querySelectorAll('#edit input, #edit select').forEach(el => {
+    if (el.id) data[el.id.replace('e_','')] = el.value;
+  });
+  data['date'] = document.getElementById('dateInput').value;
+  localStorage.setItem('trading_data', JSON.stringify(data));
+  renderView();
+  document.getElementById('edit').style.display = 'none';
+  document.getElementById('view').style.display = 'block';
+  isEditing = false;
+}
+
+window.onload = function() {
+  document.getElementById('dateInput').value = new Date().toLocaleDateString('zh-TW');
+  const saved = localStorage.getItem('trading_data');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      Object.entries(data).forEach(([id, val]) => {
+        const el = document.getElementById('e_' + id);
+        if (el) el.value = val;
+      });
+      if (data.date) document.getElementById('dateInput').value = data.date;
+    } catch(e) {}
+  }
+};
+</script>
+</body>
+</html>
